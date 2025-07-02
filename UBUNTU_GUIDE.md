@@ -1,5 +1,9 @@
 # Ubuntu系统BTC价格监控部署指南
 
+## 🎭 重要更新：伪装问题已解决！
+
+**好消息**: Ubuntu系统的兼容性问题已经通过浏览器伪装技术完全解决！现在Ubuntu可以和macOS/Windows一样正常使用DrissionPage获取Lighter数据。
+
 ## 🚀 快速部署
 
 ### 1. 系统要求
@@ -20,16 +24,19 @@ sudo apt install -y python3 python3-pip google-chrome-stable
 pip3 install -r requirements.txt
 ```
 
-### 3. Ubuntu问题诊断
+### 3. 直接启动（推荐）
+```bash
+# 使用标准程序（已集成伪装技术）
+python3 btc_price_monitor.py
+
+# 或使用Ubuntu版本
+python3 btc_price_monitor_ubuntu.py
+```
+
+### 4. 问题诊断（如需要）
 ```bash
 # 运行Ubuntu修复脚本
 python3 ubuntu_fix.py
-```
-
-### 4. 启动Ubuntu优化版
-```bash
-# 使用Ubuntu优化版程序
-python3 btc_price_monitor_ubuntu.py
 ```
 
 ## 🔧 常见问题解决

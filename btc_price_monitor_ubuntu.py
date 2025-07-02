@@ -20,14 +20,8 @@ from core.backpack_client import BackpackClient
 from core.price_recorder import PriceRecorder
 from data.models import BinanceData, BackpackData, LighterData, PriceData
 
-# Ubuntu专用Lighter客户端
-try:
-    from core.ubuntu_lighter_client import UbuntuLighterClient
-    UBUNTU_LIGHTER_AVAILABLE = True
-except ImportError:
-    print("⚠️  Ubuntu Lighter客户端不可用，将尝试使用标准客户端")
-    from core.lighter_client import LighterClient
-    UBUNTU_LIGHTER_AVAILABLE = False
+# 使用标准Lighter管理器（伪装问题已解决）
+from core.lighter_manager import create_lighter_client
 
 class BTCPriceMonitorUbuntu:
     """BTC价格监控程序 - Ubuntu优化版"""
@@ -48,13 +42,9 @@ class BTCPriceMonitorUbuntu:
         self.binance_client = BinanceClient(self._on_binance_data)
         self.backpack_client = BackpackClient(self._on_backpack_data)
         
-        # Ubuntu优化的Lighter客户端
-        if UBUNTU_LIGHTER_AVAILABLE:
-            print("🐧 使用Ubuntu优化版Lighter客户端")
-            self.lighter_client = UbuntuLighterClient(self._on_lighter_data, headless=True)
-        else:
-            print("⚠️  使用标准Lighter客户端（强制无头模式）")
-            self.lighter_client = LighterClient(self._on_lighter_data, headless=True)
+        # 使用智能Lighter客户端管理器（伪装问题已解决）
+        print("🎭 Ubuntu系统使用DrissionPage客户端（已解决伪装问题）")
+        self.lighter_client = create_lighter_client(self._on_lighter_data, headless=True)
         
         self.clients = {
             "币安": self.binance_client,
@@ -151,7 +141,7 @@ class BTCPriceMonitorUbuntu:
                     name: client.is_connected() if hasattr(client, 'is_connected') else True
                     for name, client in self.clients.items()
                 },
-                "ubuntu_optimized": UBUNTU_LIGHTER_AVAILABLE,
+                "masquerade_enabled": True,
                 "timestamp": datetime.now().isoformat()
             })
     

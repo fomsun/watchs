@@ -38,36 +38,21 @@ class LighterManager:
     def _select_best_client(self):
         """选择最适合的客户端实现"""
         system = platform.system()
-        
+
         print("🔍 选择Lighter客户端实现...")
-        
-        # Ubuntu系统优先使用Selenium
-        if system == 'Linux':
-            if SELENIUM_AVAILABLE:
-                print("🐧 Ubuntu系统，优先使用Selenium客户端")
-                self.client_type = "Selenium"
-                return LighterSeleniumClient(self.on_data_callback, self.headless)
-            elif DRISSION_AVAILABLE:
-                print("⚠️  Selenium不可用，使用DrissionPage客户端")
-                self.client_type = "DrissionPage"
-                return LighterClient(self.on_data_callback, self.headless)
-            else:
-                print("❌ 没有可用的Lighter客户端实现")
-                return None
-        
-        # macOS和Windows优先使用DrissionPage
+
+        # 所有系统都优先使用DrissionPage（伪装问题已解决）
+        if DRISSION_AVAILABLE:
+            print(f"🎭 {system}系统，优先使用DrissionPage客户端（已解决伪装问题）")
+            self.client_type = "DrissionPage"
+            return LighterClient(self.on_data_callback, self.headless)
+        elif SELENIUM_AVAILABLE:
+            print(f"⚠️  DrissionPage不可用，使用Selenium客户端作为备选")
+            self.client_type = "Selenium"
+            return LighterSeleniumClient(self.on_data_callback, self.headless)
         else:
-            if DRISSION_AVAILABLE:
-                print(f"🖥️  {system}系统，优先使用DrissionPage客户端")
-                self.client_type = "DrissionPage"
-                return LighterClient(self.on_data_callback, self.headless)
-            elif SELENIUM_AVAILABLE:
-                print("⚠️  DrissionPage不可用，使用Selenium客户端")
-                self.client_type = "Selenium"
-                return LighterSeleniumClient(self.on_data_callback, self.headless)
-            else:
-                print("❌ 没有可用的Lighter客户端实现")
-                return None
+            print("❌ 没有可用的Lighter客户端实现")
+            return None
     
     def start(self, url: str = "https://app.lighter.xyz/trade/BTC?locale=zh"):
         """启动Lighter连接"""
