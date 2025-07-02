@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO, emit
+from flask_cors import CORS
 import pytz
 
 from data.models import BTCPriceData, BinanceData, BackpackData, LighterData
@@ -44,7 +45,28 @@ class BTCPriceMonitor:
         # 初始化API服务器和WebSocket
         self.app = Flask(__name__)
         self.app.config['SECRET_KEY'] = 'btc_price_monitor_secret_key'
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
+
+        # 配置CORS，解决跨域问题
+        CORS(self.app, resources={
+            r"/*": {
+                "origins": "*",
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "allow_headers": ["Content-Type", "Authorization"]
+            }
+        })
+
+        # 配置WebSocket，解决跨域问题
+        self.socketio = SocketIO(
+            self.app,
+            cors_allowed_origins="*",
+            async_mode='threading',
+            logger=False,  # 生产环境关闭详细日志
+            engineio_logger=False,
+            allow_upgrades=True,
+            transports=['websocket', 'polling'],
+            ping_timeout=60,
+            ping_interval=25
+        )
         self.setup_routes()
         self.setup_websocket_events()
         self.api_thread = None

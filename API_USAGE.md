@@ -272,10 +272,58 @@ curl -s "http://localhost:8080/api/btc-price/history?count=10" | jq '.data[0]'
 curl -s http://localhost:8080/api/system/status | jq '.clients'
 ```
 
+## 🔧 WebSocket故障排除
+
+### 常见错误及解决方案
+
+#### 1. "xhr poll error" 错误
+```
+❌ 连接错误: Error: xhr poll error
+```
+
+**原因**: 跨域问题或服务器不可达
+
+**解决方案**:
+1. 确保BTC价格监控程序正在运行
+2. 检查端口8080是否被占用
+3. 使用调试页面测试: `websocket_debug.html`
+4. 检查防火墙设置
+
+#### 2. 连接超时
+**解决方案**:
+1. 增加连接超时时间
+2. 检查网络连接
+3. 重启监控程序
+
+#### 3. 频繁断开重连
+**解决方案**:
+1. 检查系统资源使用
+2. 调整ping间隔设置
+3. 检查网络稳定性
+
+### 调试工具
+
+#### WebSocket调试页面
+打开 `websocket_debug.html` 进行可视化调试:
+- 实时连接状态监控
+- 详细错误日志
+- 连接统计信息
+- 一键测试功能
+
+#### 命令行测试
+```bash
+# 简单连接测试
+python3 test_websocket_simple.py
+
+# 完整功能测试
+python3 test_websocket_push.py
+```
+
 ## 🔄 数据更新频率
 
 - **实时价格**: 每秒更新
 - **历史记录**: 每10秒保存一次
+- **WebSocket推送**: 实时推送Lighter数据
 - **文件存储**: `btc_price_data.txt`
 
 ## 📁 本地文件格式
