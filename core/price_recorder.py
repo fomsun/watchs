@@ -10,6 +10,7 @@ import threading
 import time
 from datetime import datetime
 from typing import Optional
+import pytz
 from data.models import BinanceData, BackpackData, LighterData
 
 
@@ -108,8 +109,10 @@ class PriceRecorder:
     def _record_current_prices(self):
         """记录当前价格数据"""
         with self.data_lock:
-            # 获取当前时间
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # 获取中国时间
+            china_tz = pytz.timezone('Asia/Shanghai')
+            china_time = datetime.now(china_tz)
+            current_time = china_time.strftime("%Y-%m-%d %H:%M:%S")
             
             # 获取各交易所价格
             binance_price = f"币安:{self.binance_data.price:.1f}" if self.binance_data else "币安:N/A"

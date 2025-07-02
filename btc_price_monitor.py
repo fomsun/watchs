@@ -10,12 +10,18 @@ import json
 from datetime import datetime
 from typing import Dict, Any, Optional
 from flask import Flask, jsonify, request
+import pytz
 
 from data.models import BTCPriceData, BinanceData, BackpackData, LighterData
 from core.binance_client import BinanceClient
 from core.backpack_client import BackpackClient
 from core.lighter_manager import create_lighter_client
 from core.price_recorder import PriceRecorder
+
+def get_china_time():
+    """获取中国时间"""
+    china_tz = pytz.timezone('Asia/Shanghai')
+    return datetime.now(china_tz)
 
 class BTCPriceMonitor:
     """BTC价格监控器"""
@@ -218,7 +224,7 @@ class BTCPriceMonitor:
         """币安数据回调"""
         with self.data_lock:
             self.price_data.binance = data
-            self.price_data.timestamp = datetime.now()
+            self.price_data.timestamp = get_china_time()
             # 更新价格记录器
             self.price_recorder.update_binance_data(data)
     
@@ -226,7 +232,7 @@ class BTCPriceMonitor:
         """Backpack数据回调"""
         with self.data_lock:
             self.price_data.backpack = data
-            self.price_data.timestamp = datetime.now()
+            self.price_data.timestamp = get_china_time()
             # 更新价格记录器
             self.price_recorder.update_backpack_data(data)
     
@@ -234,7 +240,7 @@ class BTCPriceMonitor:
         """Lighter数据回调"""
         with self.data_lock:
             self.price_data.lighter = data
-            self.price_data.timestamp = datetime.now()
+            self.price_data.timestamp = get_china_time()
             # 更新价格记录器
             self.price_recorder.update_lighter_data(data)
     
