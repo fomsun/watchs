@@ -21,20 +21,27 @@ from config import get_chrome_path, BROWSER_WAIT_TIME, SCRAPE_INTERVAL
 class LighterClient:
     """Lighter数据客户端"""
     
-    def __init__(self, on_data_callback: Callable[[LighterData], None], headless: bool = False):
+    def __init__(self, on_data_callback: Callable[[LighterData], None], headless: bool = False, refresh_interval: int = 300):
         """
         初始化Lighter客户端
 
         Args:
             on_data_callback: 数据回调函数
             headless: 是否使用无头模式
+            refresh_interval: 页面刷新间隔（秒），默认5分钟
         """
         self.on_data_callback = on_data_callback
         self.headless = headless
+        self.refresh_interval = refresh_interval  # 刷新间隔（秒）
         self.page = None
         self.data = LighterData()
         self.running = False
         self.scrape_thread = None
+        self.refresh_thread = None
+        self.last_refresh_time = 0
+        self.url = None  # 保存当前URL
+        self.connection_lost_count = 0  # 连接丢失计数
+        self.max_reconnect_attempts = 3  # 最大重连尝试次数
 
         if not DRISSION_AVAILABLE:
             print("⚠️  DrissionPage未安装")
@@ -44,6 +51,9 @@ class LighterClient:
         if not DRISSION_AVAILABLE:
             print("❌ DrissionPage不可用")
             return False
+
+        # 保存URL用于刷新
+        self.url = url
         
         try:
             print("🔷 启动Lighter浏览器...")
@@ -127,8 +137,14 @@ class LighterClient:
                 # 启动数据抓取线程
                 self.scrape_thread = threading.Thread(target=self._scrape_loop, daemon=True)
                 self.scrape_thread.start()
-                
+
+                # 启动页面刷新线程
+                self.refresh_thread = threading.Thread(target=self._refresh_loop, daemon=True)
+                self.refresh_thread.start()
+                self.last_refresh_time = time.time()
+
                 print("✅ Lighter连接成功")
+                print(f"🔄 页面将每{self.refresh_interval//60}分钟自动刷新一次")
                 return True
             else:
                 print("❌ Lighter页面加载失败")
@@ -138,7 +154,177 @@ class LighterClient:
             print(f"❌ Lighter连接失败: {e}")
             self.data.connected = False
             return False
-    
+
+    def _refresh_loop(self):
+        """页面刷新循环"""
+        while self.running:
+            try:
+                # 等待刷新间隔
+                time.sleep(60)  # 每分钟检查一次
+
+                if not self.running:
+                    break
+
+                # 检查是否需要刷新
+                current_time = time.time()
+                if current_time - self.last_refresh_time >= self.refresh_interval:
+                    print(f"🔄 页面运行已超过{self.refresh_interval//60}分钟，开始刷新...")
+                    self._refresh_page()
+                    self.last_refresh_time = current_time
+
+            except Exception as e:
+                print(f"❌ 页面刷新循环错误: {e}")
+                time.sleep(60)
+
+    def _refresh_page(self):
+        """刷新页面"""
+        try:
+            if self.page and self.url:
+                print("🔄 正在刷新页面...")
+
+                # 使用DrissionPage的refresh方法刷新页面
+                self.page.refresh()
+
+                # 等待页面重新加载
+                time.sleep(BROWSER_WAIT_TIME)
+
+                # 重新执行JavaScript伪装
+                try:
+                    self.page.run_js("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                    self.page.run_js("Object.defineProperty(navigator, 'platform', {get: () => 'MacIntel'})")
+                    self.page.run_js("Object.defineProperty(navigator, 'userAgent', {get: () => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})")
+                    print("✅ 页面刷新后JavaScript伪装完成")
+                except Exception as e:
+                    print(f"⚠️  页面刷新后JavaScript伪装失败: {e}")
+
+                # 检查页面是否正常加载
+                if self._check_page_loaded():
+                    print("✅ 页面刷新成功，订单簿数据正常")
+                else:
+                    print("⚠️  页面刷新后加载检查失败，但继续运行")
+
+        except Exception as e:
+            print(f"❌ 页面刷新失败: {e}")
+            # 如果刷新失败，尝试重新加载页面
+            try:
+                print("🔄 尝试重新加载页面...")
+                self.page.get(self.url)
+                time.sleep(BROWSER_WAIT_TIME)
+                print("✅ 页面重新加载完成")
+            except Exception as reload_error:
+                print(f"❌ 页面重新加载也失败: {reload_error}")
+
+    def _check_page_connection(self) -> bool:
+        """检查页面连接状态"""
+        try:
+            if not self.page:
+                return False
+
+            # 尝试获取页面标题来检查连接
+            title = self.page.title
+            return title is not None and len(title) > 0
+
+        except Exception as e:
+            error_msg = str(e)
+            if "disconnected" in error_msg.lower() or "connection" in error_msg.lower():
+                return False
+            return True  # 其他错误不一定是连接问题
+
+    def _reconnect_page(self) -> bool:
+        """重连页面"""
+        try:
+            if not self.url:
+                print("❌ 没有保存的URL，无法重连")
+                return False
+
+            print(f"🔄 正在重连到: {self.url}")
+
+            # 尝试关闭当前页面
+            try:
+                if self.page:
+                    self.page.quit()
+            except:
+                pass
+
+            # 重新创建页面
+            return self._create_page_and_connect()
+
+        except Exception as e:
+            print(f"❌ 重连失败: {e}")
+            return False
+
+    def _create_page_and_connect(self) -> bool:
+        """创建页面并连接"""
+        try:
+            # 重新配置浏览器选项
+            co = ChromiumOptions()
+            if self.headless:
+                co.headless()
+
+            # 设置Chrome路径
+            chrome_path = get_chrome_path()
+            if chrome_path:
+                co.set_browser_path(chrome_path)
+
+            # 🎭 伪装成macOS Chrome浏览器
+            macos_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            co.set_user_agent(macos_user_agent)
+
+            # 设置macOS相关的首选项
+            co.set_pref('profile.default_content_settings.popups', 0)
+            co.set_pref('credentials_enable_service', False)
+            co.set_pref('profile.default_content_setting_values.notifications', 2)
+
+            # 设置窗口大小和语言
+            co.set_argument('--window-size=1440,900')
+            co.set_argument('--lang=zh-CN,zh,en-US,en')
+
+            # 禁用自动化检测
+            co.set_argument('--disable-blink-features=AutomationControlled')
+            co.set_argument('--disable-web-security')
+            co.set_argument('--disable-features=VizDisplayCompositor')
+
+            # Linux系统特殊配置
+            import platform
+            if platform.system() == 'Linux':
+                co.set_argument('--no-sandbox')
+                co.set_argument('--disable-dev-shm-usage')
+                co.set_argument('--disable-gpu')
+                co.set_argument('--disable-extensions')
+
+            # 其他优化配置
+            co.no_imgs(True)
+            co.mute(True)
+
+            # 创建新页面
+            self.page = ChromiumPage(co)
+
+            # 执行JavaScript伪装
+            try:
+                self.page.run_js("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                self.page.run_js("Object.defineProperty(navigator, 'platform', {get: () => 'MacIntel'})")
+                self.page.run_js("Object.defineProperty(navigator, 'userAgent', {get: () => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})")
+            except Exception as e:
+                print(f"⚠️  JavaScript伪装失败: {e}")
+
+            # 访问页面
+            self.page.get(self.url)
+
+            # 等待页面加载
+            time.sleep(BROWSER_WAIT_TIME)
+
+            # 检查页面是否加载成功
+            if self._check_page_loaded():
+                print("✅ 页面重连并加载成功")
+                return True
+            else:
+                print("❌ 页面重连后加载失败")
+                return False
+
+        except Exception as e:
+            print(f"❌ 创建页面连接失败: {e}")
+            return False
+
     def stop(self):
         """停止Lighter连接"""
         self.running = False
@@ -164,10 +350,22 @@ class LighterClient:
         """数据抓取循环"""
         while self.running:
             try:
+                # 检查页面连接状态
+                if not self._check_page_connection():
+                    print("🔌 检测到页面连接断开，尝试重连...")
+                    if self._reconnect_page():
+                        print("✅ 页面重连成功")
+                        self.connection_lost_count = 0  # 重置计数
+                    else:
+                        print("❌ 页面重连失败，等待下次尝试")
+                        time.sleep(10)
+                        continue
+
                 orderbook = parse_orderbook_from_page(self.page)
                 if orderbook and orderbook.asks and orderbook.bids:
                     self.data.orderbook = orderbook
                     self.data.timestamp = datetime.now()
+                    self.connection_lost_count = 0  # 重置连接丢失计数
 
                     print(f"Lighter数据更新: 买一=${orderbook.best_bid:.1f}, 卖一=${orderbook.best_ask:.1f}, 中间价=${orderbook.mid_price:.1f}")
 
@@ -176,11 +374,28 @@ class LighterClient:
                         self.on_data_callback(self.data)
                 else:
                     print("订单簿数据为空或解析失败")
+                    self.connection_lost_count += 1
+
+                    # 如果连续多次解析失败，可能是连接问题
+                    if self.connection_lost_count >= 3:
+                        print("🔌 连续解析失败，可能是连接问题，尝试重连...")
+                        self._reconnect_page()
 
                 time.sleep(SCRAPE_INTERVAL)  # 按配置间隔更新
 
             except Exception as e:
-                print(f"Lighter数据抓取错误: {e}")
+                error_msg = str(e)
+                print(f"Lighter数据抓取错误: {error_msg}")
+
+                # 检查是否是连接断开错误
+                if "disconnected" in error_msg.lower() or "connection" in error_msg.lower():
+                    print("🔌 检测到连接断开错误，尝试重连...")
+                    if self._reconnect_page():
+                        print("✅ 重连成功，继续数据抓取")
+                        continue
+                    else:
+                        print("❌ 重连失败")
+
                 time.sleep(5)  # 出错时等待5秒再重试
     
     def get_current_data(self) -> LighterData:

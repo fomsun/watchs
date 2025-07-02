@@ -91,6 +91,14 @@ def validate_config():
 # 调试模式
 DEBUG = False
 
+# 页面刷新间隔（秒），默认5分钟
+PAGE_REFRESH_INTERVAL = 300
+
+# 连接重试配置
+MAX_RECONNECT_ATTEMPTS = 3  # 最大重连尝试次数
+RECONNECT_DELAY = 10  # 重连延迟（秒）
+CONNECTION_CHECK_INTERVAL = 30  # 连接检查间隔（秒）
+
 if __name__ == "__main__":
     print("=== BTC价格监控系统配置 ===")
     print(f"操作系统: {platform.system()}")

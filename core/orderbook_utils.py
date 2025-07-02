@@ -60,7 +60,11 @@ def parse_orderbook_from_page(page) -> Optional[OrderBook]:
         )
 
     except Exception as e:
-        print(f"订单簿解析错误: {e}")
+        error_msg = str(e)
+        if "disconnected" in error_msg.lower() or "connection" in error_msg.lower():
+            print(f"订单簿解析错误: 页面连接断开")
+        else:
+            print(f"订单簿解析错误: {e}")
         return None
 
 def _parse_orderbook_level(element, order_type: OrderType) -> Optional[OrderBookLevel]:

@@ -9,6 +9,9 @@ selenium>=4.0.0
 # Flask - 用于API服务
 flask>=2.0.0
 
+# Flask-SocketIO - 用于WebSocket服务
+flask-socketio>=5.0.0
+
 # WebSocket客户端 - 用于实时数据连接
 websocket-client>=1.6.0
 

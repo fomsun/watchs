@@ -26,12 +26,13 @@ except ImportError:
 class LighterManager:
     """Lighter客户端管理器"""
     
-    def __init__(self, on_data_callback: Callable[[LighterData], None], headless: bool = True):
+    def __init__(self, on_data_callback: Callable[[LighterData], None], headless: bool = True, refresh_interval: int = 300):
         self.on_data_callback = on_data_callback
         self.headless = headless
+        self.refresh_interval = refresh_interval
         self.client = None
         self.client_type = None
-        
+
         # 选择最适合的客户端
         self.client = self._select_best_client()
     
@@ -45,7 +46,7 @@ class LighterManager:
         if DRISSION_AVAILABLE:
             print(f"🎭 {system}系统，优先使用DrissionPage客户端（已解决伪装问题）")
             self.client_type = "DrissionPage"
-            return LighterClient(self.on_data_callback, self.headless)
+            return LighterClient(self.on_data_callback, self.headless, self.refresh_interval)
         elif SELENIUM_AVAILABLE:
             print(f"⚠️  DrissionPage不可用，使用Selenium客户端作为备选")
             self.client_type = "Selenium"
@@ -84,17 +85,19 @@ class LighterManager:
         """获取当前使用的客户端类型"""
         return self.client_type or "None"
 
-def create_lighter_client(on_data_callback: Callable[[LighterData], None], 
-                         headless: bool = True, 
-                         force_type: Optional[str] = None) -> LighterManager:
+def create_lighter_client(on_data_callback: Callable[[LighterData], None],
+                         headless: bool = True,
+                         force_type: Optional[str] = None,
+                         refresh_interval: int = 300) -> LighterManager:
     """
     创建Lighter客户端
-    
+
     Args:
         on_data_callback: 数据回调函数
         headless: 是否使用无头模式
         force_type: 强制使用特定类型 ("selenium" 或 "drissionpage")
-    
+        refresh_interval: 页面刷新间隔（秒），默认5分钟
+
     Returns:
         LighterManager: 客户端管理器
     """
@@ -103,19 +106,19 @@ def create_lighter_client(on_data_callback: Callable[[LighterData], None],
         
         if force_type == "selenium" and SELENIUM_AVAILABLE:
             print("🔧 强制使用Selenium客户端")
-            manager = LighterManager(on_data_callback, headless)
+            manager = LighterManager(on_data_callback, headless, refresh_interval)
             manager.client = LighterSeleniumClient(on_data_callback, headless)
             manager.client_type = "Selenium"
             return manager
-        
+
         elif force_type == "drissionpage" and DRISSION_AVAILABLE:
             print("🔧 强制使用DrissionPage客户端")
-            manager = LighterManager(on_data_callback, headless)
-            manager.client = LighterClient(on_data_callback, headless)
+            manager = LighterManager(on_data_callback, headless, refresh_interval)
+            manager.client = LighterClient(on_data_callback, headless, refresh_interval)
             manager.client_type = "DrissionPage"
             return manager
         
         else:
             print(f"⚠️  强制类型 '{force_type}' 不可用，使用自动选择")
     
-    return LighterManager(on_data_callback, headless)
+    return LighterManager(on_data_callback, headless, refresh_interval)

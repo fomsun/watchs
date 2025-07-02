@@ -10,6 +10,7 @@ import json
 from datetime import datetime
 from typing import Dict, Any, Optional
 from flask import Flask, jsonify, request
+from flask_socketio import SocketIO, emit
 import pytz
 
 from data.models import BTCPriceData, BinanceData, BackpackData, LighterData
@@ -17,6 +18,7 @@ from core.binance_client import BinanceClient
 from core.backpack_client import BackpackClient
 from core.lighter_manager import create_lighter_client
 from core.price_recorder import PriceRecorder
+from config import PAGE_REFRESH_INTERVAL
 
 def get_china_time():
     """获取中国时间"""
@@ -39,14 +41,50 @@ class BTCPriceMonitor:
         self.running = False
         self.data_lock = threading.Lock()  # 数据锁，防止并发访问冲突
         
-        # 初始化API服务器
+        # 初始化API服务器和WebSocket
         self.app = Flask(__name__)
+        self.app.config['SECRET_KEY'] = 'btc_price_monitor_secret_key'
+        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
         self.setup_routes()
+        self.setup_websocket_events()
         self.api_thread = None
 
         # 初始化价格记录器
         self.price_recorder = PriceRecorder("btc_price_data.txt")
-    
+
+    def setup_websocket_events(self):
+        """设置WebSocket事件"""
+
+        @self.socketio.on('connect')
+        def handle_connect():
+            print(f"🔌 WebSocket客户端连接: {request.sid}")
+            # 发送当前价格数据
+            with self.data_lock:
+                self.socketio.emit('price_update', self.price_data.to_dict(), room=request.sid)
+
+        @self.socketio.on('disconnect')
+        def handle_disconnect():
+            print(f"🔌 WebSocket客户端断开: {request.sid}")
+
+        @self.socketio.on('subscribe_lighter')
+        def handle_subscribe_lighter():
+            """订阅Lighter数据"""
+            print(f"📊 客户端 {request.sid} 订阅Lighter数据")
+            # 发送当前Lighter数据
+            with self.data_lock:
+                if self.price_data.lighter:
+                    lighter_data = {
+                        'type': 'lighter_update',
+                        'data': self.price_data.lighter.to_dict(),
+                        'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    self.socketio.emit('lighter_update', lighter_data, room=request.sid)
+
+        @self.socketio.on('unsubscribe_lighter')
+        def handle_unsubscribe_lighter():
+            """取消订阅Lighter数据"""
+            print(f"📊 客户端 {request.sid} 取消订阅Lighter数据")
+
     def setup_routes(self):
         """设置API路由"""
         @self.app.route('/api/btc-price', methods=['GET'])
@@ -196,10 +234,10 @@ class BTCPriceMonitor:
 
             if force_type:
                 print(f"🔧 环境变量指定使用: {force_type}")
-                lighter_client = create_lighter_client(self._on_lighter_data, headless=self.headless, force_type=force_type)
+                lighter_client = create_lighter_client(self._on_lighter_data, headless=self.headless, force_type=force_type, refresh_interval=PAGE_REFRESH_INTERVAL)
             else:
                 # 使用智能客户端管理器，自动选择最适合的实现
-                lighter_client = create_lighter_client(self._on_lighter_data, headless=self.headless)
+                lighter_client = create_lighter_client(self._on_lighter_data, headless=self.headless, refresh_interval=PAGE_REFRESH_INTERVAL)
 
             print(f"🔧 使用{lighter_client.get_client_type()}客户端")
 
@@ -212,13 +250,18 @@ class BTCPriceMonitor:
             return False
     
     def _start_api_server(self):
-        """启动API服务器"""
-        def run_flask():
-            self.app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)
+        """启动API和WebSocket服务器"""
+        def run_socketio():
+            self.socketio.run(self.app, host='0.0.0.0', port=8080, debug=False, use_reloader=False)
 
-        self.api_thread = threading.Thread(target=run_flask, daemon=True)
+        self.api_thread = threading.Thread(target=run_socketio, daemon=True)
         self.api_thread.start()
-        print("✅ API服务器已启动 - http://localhost:8080/api/btc-price")
+
+        # 等待服务器启动
+        time.sleep(2)
+        print("✅ API和WebSocket服务器已启动")
+        print("   📊 API接口: http://localhost:8080/api/btc-price")
+        print("   🔌 WebSocket: ws://localhost:8080/socket.io/")
     
     def _on_binance_data(self, data: BinanceData):
         """币安数据回调"""
@@ -243,6 +286,23 @@ class BTCPriceMonitor:
             self.price_data.timestamp = get_china_time()
             # 更新价格记录器
             self.price_recorder.update_lighter_data(data)
+
+            # 🚀 WebSocket实时推送Lighter数据
+            if hasattr(self, 'socketio') and data.orderbook:
+                lighter_data = {
+                    'type': 'lighter_update',
+                    'data': {
+                        'best_bid': data.orderbook.best_bid,
+                        'best_ask': data.orderbook.best_ask,
+                        'mid_price': data.orderbook.mid_price,
+                        'spread': data.orderbook.spread,
+                        'connected': data.connected,
+                        'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
+                    },
+                    'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                # 广播给所有连接的客户端
+                self.socketio.emit('lighter_update', lighter_data)
     
     def get_current_data(self) -> Dict[str, Any]:
         """获取当前价格数据"""
