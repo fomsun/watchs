@@ -1,0 +1,13 @@
+# BTC价格监控程序依赖
+
+# DrissionPage - 用于浏览器自动化
+DrissionPage>=4.0.0
+
+# Flask - 用于API服务
+flask>=2.0.0
+
+# Requests - 用于HTTP请求
+requests>=2.25.0
+
+# 其他依赖
+python-dotenv>=0.19.0
