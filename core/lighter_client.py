@@ -67,6 +67,27 @@ class LighterClient:
             else:
                 print("⚠️  未找到Chrome浏览器，请确保已安装Google Chrome")
 
+            # 🎭 伪装成macOS Chrome浏览器
+            macos_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            co.set_user_agent(macos_user_agent)
+            print("🎭 伪装成macOS Chrome浏览器")
+
+            # 设置macOS相关的首选项
+            co.set_pref('profile.default_content_settings.popups', 0)  # 禁用弹窗
+            co.set_pref('credentials_enable_service', False)  # 禁用密码保存提示
+            co.set_pref('profile.default_content_setting_values.notifications', 2)  # 禁用通知
+
+            # 设置窗口大小（模拟macOS常见分辨率）
+            co.set_argument('--window-size=1440,900')
+
+            # 设置语言
+            co.set_argument('--lang=zh-CN,zh,en-US,en')
+
+            # 禁用自动化检测
+            co.set_argument('--disable-blink-features=AutomationControlled')
+            co.set_argument('--disable-web-security')
+            co.set_argument('--disable-features=VizDisplayCompositor')
+
             # Linux系统特殊配置
             if platform.system() == 'Linux':
                 co.set_argument('--no-sandbox')  # Linux系统必需
@@ -80,8 +101,20 @@ class LighterClient:
             co.mute(True)     # 静音
 
             self.page = ChromiumPage(co)
+
+            # 执行JavaScript进一步伪装
+            print("🎭 执行JavaScript伪装...")
+            try:
+                # 伪装navigator属性
+                self.page.run_js("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+                self.page.run_js("Object.defineProperty(navigator, 'platform', {get: () => 'MacIntel'})")
+                self.page.run_js("Object.defineProperty(navigator, 'userAgent', {get: () => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})")
+                print("✅ JavaScript伪装完成")
+            except Exception as e:
+                print(f"⚠️  JavaScript伪装失败: {e}")
+
             self.page.get(url)
-            
+
             # 等待页面加载
             print("⏳ 等待页面加载...")
             time.sleep(BROWSER_WAIT_TIME)
