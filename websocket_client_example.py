@@ -13,7 +13,7 @@ import json
 class LighterWebSocketClient:
     """Lighter WebSocket客户端"""
     
-    def __init__(self, server_url="http://localhost:8080"):
+    def __init__(self, server_url="http://47.245.62.204:8080"):
         self.server_url = server_url
         self.sio = socketio.Client()
         self.connected = False
