@@ -6,6 +6,9 @@ DrissionPage>=4.0.0
 # Flask - 用于API服务
 flask>=2.0.0
 
+# WebSocket客户端 - 用于实时数据连接
+websocket-client>=1.6.0
+
 # Requests - 用于HTTP请求
 requests>=2.25.0
 

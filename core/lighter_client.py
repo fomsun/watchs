@@ -16,6 +16,7 @@ except ImportError:
 
 from data.models import LighterData, OrderBook
 from core.orderbook_utils import parse_orderbook_from_page
+from config import get_chrome_path, BROWSER_WAIT_TIME, SCRAPE_INTERVAL
 
 class LighterClient:
     """Lighter数据客户端"""
@@ -55,12 +56,24 @@ class LighterClient:
             else:
                 print("🖥️  使用有界面模式")
 
-            # Linux系统推荐配置
+            # 跨平台Chrome路径配置
             import platform
+
+            # 自动检测Chrome路径
+            chrome_path = get_chrome_path()
+            if chrome_path:
+                co.set_browser_path(chrome_path)
+                print(f"🌐 使用Chrome路径: {chrome_path}")
+            else:
+                print("⚠️  未找到Chrome浏览器，请确保已安装Google Chrome")
+
+            # Linux系统特殊配置
             if platform.system() == 'Linux':
                 co.set_argument('--no-sandbox')  # Linux系统必需
                 co.set_argument('--disable-dev-shm-usage')  # 避免共享内存问题
-                print("🐧 检测到Linux系统，已添加兼容性参数")
+                co.set_argument('--disable-gpu')  # 禁用GPU加速
+                co.set_argument('--disable-extensions')  # 禁用扩展
+                print("🐧 已添加Linux兼容性参数")
 
             # 其他优化配置
             co.no_imgs(True)  # 不加载图片，提高速度
@@ -71,7 +84,7 @@ class LighterClient:
             
             # 等待页面加载
             print("⏳ 等待页面加载...")
-            time.sleep(10)
+            time.sleep(BROWSER_WAIT_TIME)
             
             # 检查页面是否加载成功
             if self._check_page_loaded():
@@ -131,7 +144,7 @@ class LighterClient:
                 else:
                     print("订单簿数据为空或解析失败")
 
-                time.sleep(1)  # 每秒更新一次
+                time.sleep(SCRAPE_INTERVAL)  # 按配置间隔更新
 
             except Exception as e:
                 print(f"Lighter数据抓取错误: {e}")
