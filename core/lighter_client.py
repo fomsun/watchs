@@ -120,11 +120,75 @@ class LighterClient:
     def _check_page_loaded(self) -> bool:
         """检查页面是否加载完成"""
         try:
+            # 获取页面基本信息
+            title = self.page.title
+            url = self.page.url
+
+            print(f"🔍 页面调试信息:")
+            print(f"   标题: {title}")
+            print(f"   URL: {url}")
+
+            # 获取页面HTML信息
+            try:
+                html_content = self.page.html
+                print(f"   HTML长度: {len(html_content)} 字符")
+
+                # 检查是否包含关键词
+                keywords = ["Lighter", "BTC", "Bitcoin", "Trade", "Order", "Price", "orderbook"]
+                found_keywords = [kw for kw in keywords if kw.lower() in html_content.lower()]
+                print(f"   找到关键词: {found_keywords}")
+
+                # 显示HTML片段（前1000字符）
+                print(f"   HTML开头: {html_content[:1000]}...")
+
+            except Exception as e:
+                print(f"   获取HTML失败: {e}")
+
             # 检查订单簿容器是否存在
+            print(f"🔍 查找订单簿元素:")
+
+            # 尝试多种选择器
+            selectors_to_try = [
+                '@data-testid=orderbook-asks',
+                '@data-testid=orderbook-bids',
+                '.orderbook',
+                '[data-testid*="orderbook"]',
+                '.asks',
+                '.bids',
+                'table',
+                '.price',
+                '.order'
+            ]
+
+            found_elements = {}
+            for selector in selectors_to_try:
+                try:
+                    element = self.page.ele(selector)
+                    found_elements[selector] = element is not None
+                    if element:
+                        print(f"   ✅ 找到元素: {selector}")
+                    else:
+                        print(f"   ❌ 未找到: {selector}")
+                except Exception as e:
+                    print(f"   ❌ 查找 {selector} 出错: {e}")
+
+            # 检查特定的订单簿容器
             asks_container = self.page.ele('@data-testid=orderbook-asks')
             bids_container = self.page.ele('@data-testid=orderbook-bids')
-            return asks_container is not None and bids_container is not None
-        except:
+
+            if asks_container and bids_container:
+                print("✅ 订单簿容器验证通过")
+                return True
+            else:
+                print(f"❌ 订单簿容器验证失败")
+                print(f"   asks_container: {asks_container is not None}")
+                print(f"   bids_container: {bids_container is not None}")
+                return False
+
+        except Exception as e:
+            print(f"❌ 检查页面加载失败: {e}")
+            import traceback
+            print(f"   错误详情: {traceback.format_exc()}")
             return False
     
     def _scrape_loop(self):
