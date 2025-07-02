@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lighter API测试</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .price-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .price-value {
+            font-size: 32px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .price-label {
+            font-size: 16px;
+            margin: 5px 0;
+            opacity: 0.9;
+        }
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 10px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .timestamp {
+            color: #6c757d;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Lighter API实时价格测试</h1>
+        
+        <div id="status" class="status disconnected">
+            🔌 未连接
+        </div>
+        
+        <div class="controls">
+            <button onclick="fetchOnce()">获取一次</button>
+            <button id="autoBtn" onclick="toggleAuto()">开始自动刷新</button>
+            <button onclick="clearLog()">清空日志</button>
+        </div>
+        
+        <div class="price-card">
+            <div class="price-label">Lighter 中间价</div>
+            <div class="price-value" id="midPrice">--</div>
+            <div class="price-label">
+                买一: <span id="bestBid">--</span> | 
+                卖一: <span id="bestAsk">--</span>
+            </div>
+            <div class="price-label">
+                价差: <span id="spread">--</span>
+            </div>
+            <div class="timestamp" id="timestamp">--</div>
+        </div>
+        
+        <h3>📋 请求日志</h3>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        let autoRefresh = false;
+        let refreshInterval = null;
+        const API_URL = 'http://47.245.62.204:8080/api/lighter';
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(connected) {
+            const statusDiv = document.getElementById('status');
+            if (connected) {
+                statusDiv.className = 'status connected';
+                statusDiv.textContent = '🔌 API连接正常';
+            } else {
+                statusDiv.className = 'status disconnected';
+                statusDiv.textContent = '🔌 API连接失败';
+            }
+        }
+
+        function updatePriceDisplay(data) {
+            if (data.error) {
+                document.getElementById('midPrice').textContent = 'N/A';
+                document.getElementById('bestBid').textContent = 'N/A';
+                document.getElementById('bestAsk').textContent = 'N/A';
+                document.getElementById('spread').textContent = 'N/A';
+                document.getElementById('timestamp').textContent = data.timestamp || '--';
+                log(`❌ ${data.error}`);
+                updateStatus(false);
+            } else {
+                document.getElementById('midPrice').textContent = `$${data.mid_price?.toLocaleString() || 'N/A'}`;
+                document.getElementById('bestBid').textContent = `$${data.best_bid?.toLocaleString() || 'N/A'}`;
+                document.getElementById('bestAsk').textContent = `$${data.best_ask?.toLocaleString() || 'N/A'}`;
+                document.getElementById('spread').textContent = `$${data.spread?.toFixed(2) || 'N/A'}`;
+                document.getElementById('timestamp').textContent = data.timestamp || '--';
+                log(`✅ 价格更新: $${data.mid_price}`);
+                updateStatus(true);
+            }
+        }
+
+        async function fetchLighterData() {
+            try {
+                const response = await fetch(API_URL);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    updatePriceDisplay(data);
+                } else {
+                    log(`❌ HTTP错误: ${response.status}`);
+                    updateStatus(false);
+                }
+            } catch (error) {
+                log(`❌ 请求失败: ${error.message}`);
+                updateStatus(false);
+            }
+        }
+
+        function fetchOnce() {
+            log('📊 手动获取价格数据...');
+            fetchLighterData();
+        }
+
+        function toggleAuto() {
+            const btn = document.getElementById('autoBtn');
+            
+            if (autoRefresh) {
+                // 停止自动刷新
+                autoRefresh = false;
+                clearInterval(refreshInterval);
+                btn.textContent = '开始自动刷新';
+                log('⏹️ 停止自动刷新');
+            } else {
+                // 开始自动刷新
+                autoRefresh = true;
+                refreshInterval = setInterval(fetchLighterData, 3000); // 每3秒刷新
+                btn.textContent = '停止自动刷新';
+                log('🔄 开始自动刷新 (每3秒)');
+                fetchLighterData(); // 立即获取一次
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // 页面加载时自动获取一次数据
+        window.onload = function() {
+            log('🚀 页面加载完成');
+            fetchLighterData();
+        };
+    </script>
+</body>
+</html>

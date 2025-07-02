@@ -226,7 +226,7 @@
             }
 
             log('正在连接WebSocket服务器...', 'info');
-            socket = io('http://localhost:8080', {
+            socket = io('http://47.245.62.204:8080', {
                 transports: ['polling'],  // 只使用polling
                 upgrade: false,           // 禁用升级到websocket
                 timeout: 10000,

@@ -2,7 +2,57 @@
 
 ## 📊 API接口列表
 
-### 1. WebSocket实时数据接口 🚀 **专注Lighter**
+### 1. Lighter实时价格接口 ⭐ **推荐**
+```
+GET http://localhost:8080/api/lighter
+```
+
+**功能**: 获取当前Lighter实时价格数据
+
+**返回示例**:
+```json
+{
+  "best_bid": 109350.1,
+  "best_ask": 109354.3,
+  "mid_price": 109352.2,
+  "spread": 4.2,
+  "connected": true,
+  "timestamp": "2025-07-03 06:25:30"
+}
+```
+
+**使用示例**:
+
+#### curl命令
+```bash
+curl http://localhost:8080/api/lighter
+```
+
+#### Python调用
+```python
+import requests
+
+response = requests.get('http://localhost:8080/api/lighter')
+data = response.json()
+
+print(f"中间价: ${data['mid_price']}")
+print(f"买一: ${data['best_bid']}")
+print(f"卖一: ${data['best_ask']}")
+print(f"价差: ${data['spread']}")
+```
+
+#### JavaScript调用
+```javascript
+fetch('http://localhost:8080/api/lighter')
+  .then(response => response.json())
+  .then(data => {
+    console.log('中间价:', data.mid_price);
+    console.log('买一:', data.best_bid);
+    console.log('卖一:', data.best_ask);
+  });
+```
+
+### 2. WebSocket实时数据接口 🚀 **专注Lighter**
 ```
 WebSocket: ws://localhost:8080/socket.io/
 ```
@@ -83,7 +133,7 @@ sio.wait()
 }
 ```
 
-### 2. 实时价格接口
+### 3. 实时价格接口
 ```
 GET http://localhost:8080/api/btc-price
 ```
@@ -114,7 +164,7 @@ GET http://localhost:8080/api/btc-price
 }
 ```
 
-### 3. 历史价格接口 ⭐
+### 4. 历史价格接口 ⭐
 ```
 GET http://localhost:8080/api/btc-price/history
 ```
@@ -193,7 +243,7 @@ curl "http://localhost:8080/api/btc-price/history"
 }
 ```
 
-### 4. 系统状态接口
+### 5. 系统状态接口
 ```
 GET http://localhost:8080/api/system/status
 ```
