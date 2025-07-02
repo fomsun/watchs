@@ -23,25 +23,42 @@ else
     echo "✅ Python3已安装: $(python3 --version)"
 fi
 
-# 安装Google Chrome
+# 安装Google Chrome和依赖
 echo "🌐 检查Google Chrome安装..."
 if ! command -v google-chrome &> /dev/null; then
     echo "安装Google Chrome..."
-    
+
     # 下载Chrome的GPG密钥
     wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-    
+
     # 添加Chrome仓库
     echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-    
+
     # 更新包列表并安装Chrome
     sudo apt update
     sudo apt install -y google-chrome-stable
-    
+
     echo "✅ Google Chrome安装完成"
 else
     echo "✅ Google Chrome已安装: $(google-chrome --version)"
 fi
+
+# 安装Chrome运行依赖（Ubuntu重要）
+echo "📦 安装Chrome运行依赖..."
+sudo apt install -y \
+    libnss3-dev \
+    libatk-bridge2.0-dev \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libxss1 \
+    libasound2 \
+    libatspi2.0-0 \
+    libgtk-3-0
+
+echo "✅ Chrome依赖安装完成"
 
 # 检查Chrome路径
 echo "🔍 检查Chrome路径..."
@@ -87,7 +104,10 @@ fi
 # 设置权限
 echo "🔐 设置执行权限..."
 chmod +x btc_price_monitor.py
+chmod +x btc_price_monitor_ubuntu.py
 chmod +x config.py
+chmod +x ubuntu_fix.py
+chmod +x test_ubuntu_simple.py
 
 # 创建启动脚本
 echo "🚀 创建启动脚本..."
@@ -141,6 +161,11 @@ echo "   sudo systemctl start btc-monitor"
 
 # 显示安装完成信息
 echo ""
+# 运行Ubuntu环境测试
+echo "🧪 运行Ubuntu环境测试..."
+python3 test_ubuntu_simple.py
+
+echo ""
 echo "🎉 安装完成！"
 echo ""
 echo "📍 Chrome路径: $FOUND_CHROME"
@@ -148,15 +173,23 @@ echo "🐍 Python版本: $(python3 --version)"
 echo "📁 工作目录: $(pwd)"
 echo ""
 echo "🚀 启动方式:"
-echo "   方式1: ./start_monitor.sh"
-echo "   方式2: python3 btc_price_monitor.py"
+echo "   Ubuntu优化版: python3 btc_price_monitor_ubuntu.py"
+echo "   标准版: python3 btc_price_monitor.py"
+echo "   启动脚本: ./start_monitor.sh"
 echo ""
 echo "🌐 API接口: http://localhost:8080/api/btc-price"
 echo "📊 历史数据: http://localhost:8080/api/btc-price/history"
+echo "🔧 系统状态: http://localhost:8080/api/system/status"
 echo ""
-echo "📝 日志文件: btc_price_data.txt"
+echo "📝 日志文件: btc_price_data_ubuntu.txt"
+echo ""
+echo "🔧 故障排除:"
+echo "   环境测试: python3 test_ubuntu_simple.py"
+echo "   详细诊断: python3 ubuntu_fix.py"
+echo "   Ubuntu指南: cat UBUNTU_GUIDE.md"
 echo ""
 echo "⚠️  注意事项:"
+echo "   - Ubuntu推荐使用优化版程序"
 echo "   - 确保网络连接正常"
 echo "   - 首次运行可能需要较长时间加载"
 echo "   - 使用Ctrl+C停止程序"

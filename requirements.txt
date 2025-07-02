@@ -3,6 +3,9 @@
 # DrissionPage - 用于浏览器自动化
 DrissionPage>=4.0.0
 
+# Selenium - 用于浏览器自动化（Ubuntu兼容性更好）
+selenium>=4.0.0
+
 # Flask - 用于API服务
 flask>=2.0.0
 

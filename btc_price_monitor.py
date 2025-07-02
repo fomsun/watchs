@@ -14,7 +14,7 @@ from flask import Flask, jsonify, request
 from data.models import BTCPriceData, BinanceData, BackpackData, LighterData
 from core.binance_client import BinanceClient
 from core.backpack_client import BackpackClient
-from core.lighter_client import LighterClient
+from core.lighter_manager import create_lighter_client
 from core.price_recorder import PriceRecorder
 
 class BTCPriceMonitor:
@@ -184,7 +184,10 @@ class BTCPriceMonitor:
     def _start_lighter_client(self):
         """启动Lighter客户端"""
         try:
-            lighter_client = LighterClient(self._on_lighter_data, headless=self.headless)
+            # 使用智能客户端管理器，自动选择最适合的实现
+            lighter_client = create_lighter_client(self._on_lighter_data, headless=self.headless)
+            print(f"🔧 使用{lighter_client.get_client_type()}客户端")
+
             if lighter_client.start():
                 self.clients['lighter'] = lighter_client
                 return True
