@@ -84,20 +84,23 @@ curl http://localhost:8080/api/btc-price/history?format=raw
 
 ```
 watchs/
-├── btc_price_monitor.py    # 主程序
-├── config.py              # 配置文件
-├── requirements.txt       # Python依赖
-├── setup_linux.sh         # Linux安装脚本
-├── .gitignore             # Git忽略文件
-├── core/                  # 核心模块
-│   ├── binance_client.py  # 币安WebSocket客户端
-│   ├── backpack_client.py # Backpack WebSocket客户端
-│   ├── lighter_client.py  # Lighter浏览器客户端
-│   ├── price_recorder.py  # 价格记录器
-│   └── orderbook_utils.py # 订单簿工具
-├── data/                  # 数据模型
-│   └── models.py          # 数据结构定义
-└── btc_price_data.txt     # 价格数据文件 (自动生成)
+├── btc_price_monitor.py          # 主程序 (包含WebSocket服务)
+├── config.py                     # 配置文件
+├── requirements.txt              # Python依赖
+├── API_USAGE.md                  # API使用文档
+├── websocket_client_example.py   # WebSocket客户端示例
+├── websocket_test.html           # WebSocket测试页面
+├── core/                         # 核心模块
+│   ├── binance_client.py         # 币安WebSocket客户端
+│   ├── backpack_client.py        # Backpack WebSocket客户端
+│   ├── lighter_client.py         # Lighter浏览器客户端 (自动重连)
+│   ├── lighter_manager.py        # Lighter客户端管理器
+│   ├── lighter_selenium_client.py # Selenium备选客户端
+│   ├── price_recorder.py         # 价格记录器
+│   └── orderbook_utils.py        # 订单簿工具
+├── data/                         # 数据模型
+│   └── models.py                 # 数据结构定义
+└── btc_price_data.txt            # 价格数据文件 (自动生成)
 ```
 
 ## ⚙️ 配置说明
