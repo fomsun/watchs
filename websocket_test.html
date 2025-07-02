@@ -226,11 +226,18 @@
             }
 
             log('正在连接WebSocket服务器...', 'info');
-            socket = io('http://47.245.62.204:8080');
+            socket = io('http://localhost:8080', {
+                transports: ['polling'],  // 只使用polling
+                upgrade: false,           // 禁用升级到websocket
+                timeout: 10000,
+                forceNew: true
+            });
 
             socket.on('connect', function() {
                 log('✅ WebSocket连接成功', 'success');
                 updateStatus(true);
+                // 自动订阅Lighter数据
+                socket.emit('subscribe');
             });
 
             socket.on('disconnect', function() {
@@ -238,12 +245,7 @@
                 updateStatus(false);
             });
 
-            socket.on('price_update', function(data) {
-                log('📊 收到价格更新', 'info');
-                updatePriceDisplay(data);
-            });
-
-            socket.on('lighter_update', function(data) {
+            socket.on('lighter_data', function(data) {
                 log('⚡ 收到Lighter数据更新', 'success');
                 updateLighterDisplay(data);
             });
@@ -265,7 +267,7 @@
 
         function subscribeLighter() {
             if (socket && isConnected) {
-                socket.emit('subscribe_lighter');
+                socket.emit('subscribe');
                 log('📊 发送Lighter订阅请求', 'info');
                 document.getElementById('subscribeBtn').disabled = true;
                 document.getElementById('unsubscribeBtn').disabled = false;
@@ -275,7 +277,7 @@
 
         function unsubscribeLighter() {
             if (socket && isConnected) {
-                socket.emit('unsubscribe_lighter');
+                socket.emit('unsubscribe');
                 log('📊 发送Lighter取消订阅请求', 'info');
                 document.getElementById('subscribeBtn').disabled = false;
                 document.getElementById('unsubscribeBtn').disabled = true;

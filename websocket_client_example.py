@@ -33,21 +33,7 @@ class LighterWebSocketClient:
             self.connected = False
         
         @self.sio.event
-        def price_update(data):
-            """接收价格更新"""
-            print("📊 收到价格更新:")
-            if data.get('binance'):
-                print(f"   币安: ${data['binance'].get('price', 'N/A')}")
-            if data.get('backpack'):
-                print(f"   Backpack: ${data['backpack'].get('price', 'N/A')}")
-            if data.get('lighter'):
-                lighter = data['lighter']
-                print(f"   Lighter: ${lighter.get('mid_price', 'N/A')} (买一: ${lighter.get('best_bid', 'N/A')}, 卖一: ${lighter.get('best_ask', 'N/A')})")
-            print(f"   时间: {data.get('timestamp', 'N/A')}")
-            print("-" * 50)
-        
-        @self.sio.event
-        def lighter_update(data):
+        def lighter_data(data):
             """接收Lighter数据更新"""
             print("⚡ 收到Lighter实时数据:")
             lighter_data = data.get('data', {})
@@ -63,7 +49,7 @@ class LighterWebSocketClient:
         """连接到服务器"""
         try:
             print(f"🚀 正在连接到 {self.server_url}...")
-            self.sio.connect(self.server_url)
+            self.sio.connect(self.server_url, transports=['polling'])
             return True
         except Exception as e:
             print(f"❌ 连接失败: {e}")
@@ -78,15 +64,15 @@ class LighterWebSocketClient:
     def subscribe_lighter(self):
         """订阅Lighter数据"""
         if self.connected:
-            self.sio.emit('subscribe_lighter')
+            self.sio.emit('subscribe')
             print("📊 已发送Lighter订阅请求")
         else:
             print("❌ 未连接，无法订阅")
-    
+
     def unsubscribe_lighter(self):
         """取消订阅Lighter数据"""
         if self.connected:
-            self.sio.emit('unsubscribe_lighter')
+            self.sio.emit('unsubscribe')
             print("📊 已发送Lighter取消订阅请求")
         else:
             print("❌ 未连接，无法取消订阅")

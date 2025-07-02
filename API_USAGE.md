@@ -2,37 +2,40 @@
 
 ## 📊 API接口列表
 
-### 1. WebSocket实时数据接口 🚀 **新增**
+### 1. WebSocket实时数据接口 🚀 **专注Lighter**
 ```
 WebSocket: ws://localhost:8080/socket.io/
 ```
 
-**功能**: 实时推送Lighter订单簿数据
+**功能**: 实时推送Lighter订单簿数据（仅Lighter，不包含币安和Backpack）
 
 **事件列表**:
-- `connect`: 连接成功
+- `connect`: 连接成功（自动发送当前Lighter数据）
 - `disconnect`: 连接断开
-- `price_update`: 价格数据更新（连接时自动发送）
-- `lighter_update`: Lighter数据实时更新
-- `subscribe_lighter`: 订阅Lighter数据
-- `unsubscribe_lighter`: 取消订阅Lighter数据
+- `lighter_data`: Lighter数据实时更新
+- `subscribe`: 订阅Lighter数据
+- `unsubscribe`: 取消订阅Lighter数据
 
 **使用示例**:
 
 #### JavaScript客户端
 ```javascript
-// 连接WebSocket
-const socket = io('http://localhost:8080');
+// 连接WebSocket (使用polling模式避免协议问题)
+const socket = io('http://localhost:8080', {
+    transports: ['polling'],
+    upgrade: false,
+    timeout: 10000
+});
 
 // 监听连接事件
 socket.on('connect', function() {
     console.log('WebSocket连接成功');
     // 订阅Lighter数据
-    socket.emit('subscribe_lighter');
+    socket.emit('subscribe');
 });
 
 // 监听Lighter实时数据
-socket.on('lighter_update', function(data) {
+socket.on('lighter_data', function(data) {
     console.log('Lighter数据:', data);
     // data.data.mid_price - 中间价
     // data.data.best_bid - 买一价
@@ -51,16 +54,16 @@ sio = socketio.Client()
 @sio.event
 def connect():
     print('WebSocket连接成功')
-    sio.emit('subscribe_lighter')
+    sio.emit('subscribe')
 
 @sio.event
-def lighter_update(data):
+def lighter_data(data):
     lighter = data['data']
     print(f"中间价: ${lighter['mid_price']}")
     print(f"买一: ${lighter['best_bid']}")
     print(f"卖一: ${lighter['best_ask']}")
 
-sio.connect('http://localhost:8080')
+sio.connect('http://localhost:8080', transports=['polling'])
 sio.wait()
 ```
 

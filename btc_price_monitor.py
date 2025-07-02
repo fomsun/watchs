@@ -55,15 +55,15 @@ class BTCPriceMonitor:
             }
         })
 
-        # 配置WebSocket，解决跨域问题
+        # 配置WebSocket，解决连接问题
         self.socketio = SocketIO(
             self.app,
             cors_allowed_origins="*",
             async_mode='threading',
-            logger=False,  # 生产环境关闭详细日志
+            logger=False,
             engineio_logger=False,
-            allow_upgrades=True,
-            transports=['websocket', 'polling'],
+            allow_upgrades=False,  # 禁用升级，只使用polling
+            transports=['polling'],  # 只使用polling传输
             ping_timeout=60,
             ping_interval=25
         )
@@ -80,30 +80,50 @@ class BTCPriceMonitor:
         @self.socketio.on('connect')
         def handle_connect():
             print(f"🔌 WebSocket客户端连接: {request.sid}")
-            # 发送当前价格数据
+            # 只发送当前Lighter数据
             with self.data_lock:
-                self.socketio.emit('price_update', self.price_data.to_dict(), room=request.sid)
+                if self.price_data.lighter and self.price_data.lighter.orderbook:
+                    lighter_data = {
+                        'type': 'lighter_data',
+                        'data': {
+                            'best_bid': self.price_data.lighter.orderbook.best_bid,
+                            'best_ask': self.price_data.lighter.orderbook.best_ask,
+                            'mid_price': self.price_data.lighter.orderbook.mid_price,
+                            'spread': self.price_data.lighter.orderbook.spread,
+                            'connected': self.price_data.lighter.connected,
+                            'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
+                        },
+                        'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    self.socketio.emit('lighter_data', lighter_data, room=request.sid)
 
         @self.socketio.on('disconnect')
         def handle_disconnect():
             print(f"🔌 WebSocket客户端断开: {request.sid}")
 
-        @self.socketio.on('subscribe_lighter')
-        def handle_subscribe_lighter():
+        @self.socketio.on('subscribe')
+        def handle_subscribe():
             """订阅Lighter数据"""
             print(f"📊 客户端 {request.sid} 订阅Lighter数据")
             # 发送当前Lighter数据
             with self.data_lock:
-                if self.price_data.lighter:
+                if self.price_data.lighter and self.price_data.lighter.orderbook:
                     lighter_data = {
-                        'type': 'lighter_update',
-                        'data': self.price_data.lighter.to_dict(),
+                        'type': 'lighter_data',
+                        'data': {
+                            'best_bid': self.price_data.lighter.orderbook.best_bid,
+                            'best_ask': self.price_data.lighter.orderbook.best_ask,
+                            'mid_price': self.price_data.lighter.orderbook.mid_price,
+                            'spread': self.price_data.lighter.orderbook.spread,
+                            'connected': self.price_data.lighter.connected,
+                            'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
+                        },
                         'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
                     }
-                    self.socketio.emit('lighter_update', lighter_data, room=request.sid)
+                    self.socketio.emit('lighter_data', lighter_data, room=request.sid)
 
-        @self.socketio.on('unsubscribe_lighter')
-        def handle_unsubscribe_lighter():
+        @self.socketio.on('unsubscribe')
+        def handle_unsubscribe():
             """取消订阅Lighter数据"""
             print(f"📊 客户端 {request.sid} 取消订阅Lighter数据")
 
@@ -183,6 +203,26 @@ class BTCPriceMonitor:
                 return jsonify({
                     "error": f"获取历史数据失败: {str(e)}"
                 }), 500
+
+        @self.app.route('/api/lighter', methods=['GET'])
+        def get_lighter_data():
+            """获取当前Lighter数据"""
+            with self.data_lock:
+                if self.price_data.lighter and self.price_data.lighter.orderbook:
+                    return jsonify({
+                        'best_bid': self.price_data.lighter.orderbook.best_bid,
+                        'best_ask': self.price_data.lighter.orderbook.best_ask,
+                        'mid_price': self.price_data.lighter.orderbook.mid_price,
+                        'spread': self.price_data.lighter.orderbook.spread,
+                        'connected': self.price_data.lighter.connected,
+                        'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
+                    })
+                else:
+                    return jsonify({
+                        'error': 'No Lighter data available',
+                        'connected': False,
+                        'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
+                    })
     
     def start(self):
         """启动所有价格监控"""
@@ -312,7 +352,7 @@ class BTCPriceMonitor:
             # 🚀 WebSocket实时推送Lighter数据
             if hasattr(self, 'socketio') and data.orderbook:
                 lighter_data = {
-                    'type': 'lighter_update',
+                    'type': 'lighter_data',
                     'data': {
                         'best_bid': data.orderbook.best_bid,
                         'best_ask': data.orderbook.best_ask,
@@ -324,7 +364,7 @@ class BTCPriceMonitor:
                     'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
                 }
                 # 广播给所有连接的客户端
-                self.socketio.emit('lighter_update', lighter_data)
+                self.socketio.emit('lighter_data', lighter_data)
     
     def get_current_data(self) -> Dict[str, Any]:
         """获取当前价格数据"""
