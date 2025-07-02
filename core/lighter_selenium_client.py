@@ -52,12 +52,12 @@ class LighterSeleniumClient:
 
             # 配置Chrome选项
             chrome_options = Options()
-            
+
             # 无头模式
             if self.headless:
                 chrome_options.add_argument('--headless')
                 print("🔇 使用无头模式")
-            
+
             # Ubuntu必需参数
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument('--disable-dev-shm-usage')
@@ -68,6 +68,37 @@ class LighterSeleniumClient:
             chrome_options.add_argument('--disable-background-timer-throttling')
             chrome_options.add_argument('--disable-backgrounding-occluded-windows')
             chrome_options.add_argument('--disable-renderer-backgrounding')
+
+            # 🎭 伪装成macOS Chrome浏览器
+            macos_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            chrome_options.add_argument(f'--user-agent={macos_user_agent}')
+            print("🎭 伪装成macOS Chrome浏览器")
+
+            # 设置窗口大小（模拟macOS常见分辨率）
+            chrome_options.add_argument('--window-size=1440,900')
+
+            # 设置语言和地区
+            chrome_options.add_argument('--lang=zh-CN,zh,en-US,en')
+
+            # 禁用自动化检测
+            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option('useAutomationExtension', False)
+
+            # 设置首选项（模拟macOS环境）
+            prefs = {
+                "profile.default_content_setting_values.notifications": 2,
+                "profile.default_content_settings.popups": 0,
+                "profile.managed_default_content_settings.images": 1,  # 允许图片加载
+                "profile.default_content_setting_values.geolocation": 2,
+                "profile.managed_default_content_settings.media_stream": 2,
+                # 模拟macOS字体设置
+                "webkit.webprefs.fonts.standard.Zyyy": "SF Pro Display",
+                "webkit.webprefs.fonts.serif.Zyyy": "Times",
+                "webkit.webprefs.fonts.sansserif.Zyyy": "SF Pro Display",
+                "webkit.webprefs.fonts.fixed.Zyyy": "SF Mono"
+            }
+            chrome_options.add_experimental_option("prefs", prefs)
             
             # 内存和性能优化
             chrome_options.add_argument('--memory-pressure-off')
@@ -92,18 +123,30 @@ class LighterSeleniumClient:
             # 创建WebDriver
             service = Service()  # 使用系统PATH中的chromedriver
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
-            
+
             # 设置超时
             self.driver.set_page_load_timeout(30)
             self.driver.implicitly_wait(10)
-            
+
+            # 执行JavaScript来进一步伪装
+            self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            self.driver.execute_script("Object.defineProperty(navigator, 'platform', {get: () => 'MacIntel'})")
+            self.driver.execute_script("Object.defineProperty(navigator, 'userAgent', {get: () => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'})")
+
             print(f"🔗 访问页面: {url}")
             self.driver.get(url)
             
             # 等待页面加载
             print("⏳ 等待页面加载...")
+            time.sleep(5)
+
+            # 验证伪装效果
+            self._verify_masquerade()
+
+            # 等待更长时间让JavaScript完全加载
+            print("⏳ 等待JavaScript渲染...")
             time.sleep(15)
-            
+
             # 检查页面是否加载成功
             if self._check_page_loaded():
                 self.data.connected = True
@@ -126,33 +169,150 @@ class LighterSeleniumClient:
             print(f"详细错误: {traceback.format_exc()}")
             self.data.connected = False
             return False
-    
+
+    def _verify_masquerade(self):
+        """验证伪装效果"""
+        try:
+            print("🎭 验证浏览器伪装效果...")
+
+            # 检查User-Agent
+            user_agent = self.driver.execute_script("return navigator.userAgent")
+            print(f"   User-Agent: {user_agent}")
+
+            # 检查平台
+            platform_info = self.driver.execute_script("return navigator.platform")
+            print(f"   Platform: {platform_info}")
+
+            # 检查webdriver属性
+            webdriver_prop = self.driver.execute_script("return navigator.webdriver")
+            print(f"   WebDriver属性: {webdriver_prop}")
+
+            # 检查语言
+            language = self.driver.execute_script("return navigator.language")
+            print(f"   语言: {language}")
+
+            if "Mac" in platform_info and webdriver_prop is None:
+                print("✅ 伪装成功")
+            else:
+                print("⚠️  伪装可能不完全")
+
+        except Exception as e:
+            print(f"⚠️  验证伪装失败: {e}")
+
     def _check_page_loaded(self) -> bool:
         """检查页面是否加载完成"""
         try:
-            # 等待订单簿容器出现
-            wait = WebDriverWait(self.driver, 20)
-            
-            # 检查订单簿容器
-            asks_container = wait.until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="orderbook-asks"]'))
-            )
-            bids_container = self.driver.find_element(By.CSS_SELECTOR, '[data-testid="orderbook-bids"]')
-            
-            if asks_container and bids_container:
+            print("🔍 检查页面元素...")
+
+            # 等待页面完全加载
+            wait = WebDriverWait(self.driver, 30)
+
+            # 等待页面标题包含BTC
+            wait.until(lambda driver: "BTC" in driver.title)
+            print(f"✅ 页面标题正确: {self.driver.title}")
+
+            # 等待JavaScript加载完成
+            wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
+            print("✅ 页面加载完成")
+
+            # 额外等待JavaScript渲染
+            time.sleep(10)
+            print("⏳ 等待JavaScript渲染...")
+
+            # 尝试多种选择器查找订单簿容器
+            selectors_to_try = [
+                '[data-testid="orderbook-asks"]',
+                '[data-testid="orderbook-bids"]',
+                '.orderbook',
+                '[class*="orderbook"]',
+                '[class*="asks"]',
+                '[class*="bids"]',
+                'table',
+                '[data-testid*="order"]',
+                '[data-testid*="book"]'
+            ]
+
+            found_elements = {}
+            for selector in selectors_to_try:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    found_elements[selector] = len(elements)
+                    if elements:
+                        print(f"   ✅ 找到 {len(elements)} 个元素: {selector}")
+                    else:
+                        print(f"   ❌ 未找到: {selector}")
+                except Exception as e:
+                    print(f"   ❌ 查找 {selector} 出错: {e}")
+
+            # 检查特定的订单簿容器
+            asks_elements = self.driver.find_elements(By.CSS_SELECTOR, '[data-testid="orderbook-asks"]')
+            bids_elements = self.driver.find_elements(By.CSS_SELECTOR, '[data-testid="orderbook-bids"]')
+
+            print(f"🔍 订单簿容器检查:")
+            print(f"   asks容器: {len(asks_elements)} 个")
+            print(f"   bids容器: {len(bids_elements)} 个")
+
+            if asks_elements and bids_elements:
                 print("✅ 订单簿容器找到")
                 return True
             else:
-                print("❌ 订单簿容器未找到")
+                print("❌ 订单簿容器未找到，尝试分析页面结构...")
+                self._analyze_page_structure()
                 return False
-                
+
         except TimeoutException:
             print("❌ 页面加载超时")
+            self._analyze_page_structure()
             return False
         except Exception as e:
             print(f"❌ 页面检查失败: {e}")
+            self._analyze_page_structure()
             return False
-    
+
+    def _analyze_page_structure(self):
+        """分析页面结构，寻找可能的订单簿元素"""
+        try:
+            print("🔍 分析页面结构...")
+
+            # 查找所有包含data-testid的元素
+            testid_elements = self.driver.find_elements(By.CSS_SELECTOR, '[data-testid]')
+            print(f"   找到 {len(testid_elements)} 个data-testid元素:")
+
+            testid_values = []
+            for elem in testid_elements[:20]:  # 只显示前20个
+                try:
+                    testid = elem.get_attribute('data-testid')
+                    if testid:
+                        testid_values.append(testid)
+                        print(f"      data-testid='{testid}'")
+                except:
+                    pass
+
+            # 查找包含价格相关文本的元素
+            print("   查找包含价格的元素:")
+            price_patterns = [r'\$\d+', r'\d+\.\d+', r'109\d+']
+            for pattern in price_patterns:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, f"//*[contains(text(), '{pattern}')]")
+                    if elements:
+                        print(f"      找到 {len(elements)} 个包含 '{pattern}' 的元素")
+                except:
+                    pass
+
+            # 查找表格元素
+            tables = self.driver.find_elements(By.TAG_NAME, 'table')
+            print(f"   找到 {len(tables)} 个表格元素")
+
+            # 查找可能的订单簿相关class
+            possible_classes = ['order', 'book', 'ask', 'bid', 'price', 'trade']
+            for class_name in possible_classes:
+                elements = self.driver.find_elements(By.CSS_SELECTOR, f'[class*="{class_name}"]')
+                if elements:
+                    print(f"   找到 {len(elements)} 个包含 '{class_name}' 的class元素")
+
+        except Exception as e:
+            print(f"   页面结构分析失败: {e}")
+
     def _debug_page_info(self):
         """调试页面信息"""
         try:

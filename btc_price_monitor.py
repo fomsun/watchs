@@ -184,8 +184,17 @@ class BTCPriceMonitor:
     def _start_lighter_client(self):
         """启动Lighter客户端"""
         try:
-            # 使用智能客户端管理器，自动选择最适合的实现
-            lighter_client = create_lighter_client(self._on_lighter_data, headless=self.headless)
+            # 检查环境变量，允许强制使用特定客户端
+            import os
+            force_type = os.getenv('LIGHTER_CLIENT_TYPE', '').lower()
+
+            if force_type:
+                print(f"🔧 环境变量指定使用: {force_type}")
+                lighter_client = create_lighter_client(self._on_lighter_data, headless=self.headless, force_type=force_type)
+            else:
+                # 使用智能客户端管理器，自动选择最适合的实现
+                lighter_client = create_lighter_client(self._on_lighter_data, headless=self.headless)
+
             print(f"🔧 使用{lighter_client.get_client_type()}客户端")
 
             if lighter_client.start():
