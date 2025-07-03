@@ -17,7 +17,7 @@ from data.models import BTCPriceData, BinanceData, BackpackData, LighterData
 from core.binance_client import BinanceClient
 from core.backpack_client import BackpackClient
 from core.lighter_manager import create_lighter_client
-from core.price_recorder import PriceRecorder
+from core.sqlite_price_recorder import SQLitePriceRecorder
 from config import PAGE_REFRESH_INTERVAL
 
 def get_china_time():
@@ -57,8 +57,8 @@ class BTCPriceMonitor:
         self.setup_routes()
         self.api_thread = None
 
-        # 初始化价格记录器
-        self.price_recorder = PriceRecorder("btc_price_data.txt")
+        # 初始化SQLite价格记录器
+        self.price_recorder = SQLitePriceRecorder("btc_price_data.db")
 
 
     def setup_routes(self):
@@ -157,6 +157,81 @@ class BTCPriceMonitor:
                         'connected': False,
                         'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
                     })
+
+        @self.app.route('/api/history', methods=['GET'])
+        def get_price_history():
+            """获取价格历史记录（SQLite版本）支持时间范围查询"""
+            try:
+                # 获取查询参数
+                count = request.args.get('count', 100, type=int)
+                start_time = request.args.get('start_time')  # 格式: 2025-07-03 10:00:00
+                end_time = request.args.get('end_time')      # 格式: 2025-07-03 20:00:00
+
+                count = min(count, 1000)  # 最大1000条
+
+                # 根据是否有时间范围参数选择查询方式
+                if start_time and end_time:
+                    # 时间范围查询
+                    records = self.price_recorder.get_records_by_time_range(start_time, end_time)
+                    query_type = 'time_range'
+                    query_params = {
+                        'start_time': start_time,
+                        'end_time': end_time
+                    }
+                elif start_time:
+                    # 从指定时间开始查询
+                    records = self.price_recorder.get_records_from_time(start_time, count)
+                    query_type = 'from_time'
+                    query_params = {
+                        'start_time': start_time,
+                        'count': count
+                    }
+                else:
+                    # 默认查询最新记录
+                    records = self.price_recorder.get_latest_records(count)
+                    query_type = 'latest'
+                    query_params = {
+                        'count': count
+                    }
+
+                return jsonify({
+                    'count': len(records),
+                    'query_type': query_type,
+                    'query_params': query_params,
+                    'data': records,
+                    'source': 'sqlite_database'
+                })
+
+            except Exception as e:
+                return jsonify({
+                    'error': f'获取历史数据失败: {str(e)}'
+                }), 500
+
+        @self.app.route('/api/stats', methods=['GET'])
+        def get_database_stats():
+            """获取数据库统计信息"""
+            try:
+                total_records = self.price_recorder.get_record_count()
+                latest_records = self.price_recorder.get_latest_records(1)
+                db_info = self.price_recorder.get_database_info()
+
+                latest_time = latest_records[0]['timestamp'] if latest_records else None
+
+                return jsonify({
+                    'total_records': total_records,
+                    'latest_timestamp': latest_time,
+                    'database_file': 'btc_price_data.db',
+                    'database_size_mb': db_info.get('database_size_mb', 0),
+                    'indexes_count': len(db_info.get('indexes', [])),
+                    'wal_mode': db_info.get('wal_mode_enabled', False),
+                    'save_interval': '60秒',
+                    'timestamp': get_china_time().strftime("%Y-%m-%d %H:%M:%S")
+                })
+
+            except Exception as e:
+                return jsonify({
+                    'error': f'获取统计信息失败: {str(e)}'
+                }), 500
     
     def start(self):
         """启动所有价格监控"""

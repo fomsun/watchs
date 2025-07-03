@@ -48,7 +48,7 @@ LIGHTER_HEADLESS = True  # 默认使用无头模式
 
 # 浏览器配置
 BROWSER_WAIT_TIME = 10  # 页面加载等待时间（秒）
-SCRAPE_INTERVAL = 3     # 数据抓取间隔（秒）
+SCRAPE_INTERVAL = 1     # 数据抓取间隔（秒）
 
 def get_chrome_path():
     """
@@ -93,6 +93,9 @@ DEBUG = False
 
 # 页面刷新间隔（秒），默认5分钟
 PAGE_REFRESH_INTERVAL = 300
+
+# 数据库保存间隔（秒），默认1分钟
+DATABASE_SAVE_INTERVAL = 60
 
 # 连接重试配置
 MAX_RECONNECT_ATTEMPTS = 3  # 最大重连尝试次数
