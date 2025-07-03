@@ -20,7 +20,11 @@ def parse_txt_line(line):
         line = line.strip()
         if not line:
             return None
-        
+
+        # 跳过表头或无效行
+        if line.startswith('时间') or line == '时间' or '币安' not in line:
+            return None
+
         # 分割数据
         parts = line.split('-')
         if len(parts) < 4:
@@ -75,18 +79,28 @@ def parse_txt_line(line):
 def group_by_minute(records):
     """按分钟分组数据，每分钟只保留一条"""
     grouped = defaultdict(list)
-    
+
     for record in records:
         if not record:
             continue
-        
+
+        # 跳过无效的时间戳
+        timestamp_str = record.get('timestamp', '').strip()
+        if not timestamp_str or timestamp_str in ['时间', '']:
+            continue
+
         try:
             # 解析时间戳，提取到分钟级别
-            timestamp = datetime.strptime(record['timestamp'], '%Y-%m-%d %H:%M:%S')
+            timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
             minute_key = timestamp.strftime('%Y-%m-%d %H:%M:00')  # 秒数设为00
             grouped[minute_key].append(record)
+        except ValueError as e:
+            # 只对真正的时间格式错误显示警告，跳过明显的无效数据
+            if timestamp_str not in ['时间', '']:
+                print(f"时间解析失败: {timestamp_str} 错误: {e}")
+            continue
         except Exception as e:
-            print(f"时间解析失败: {record['timestamp']} 错误: {e}")
+            print(f"时间解析失败: {timestamp_str} 错误: {e}")
             continue
     
     # 每分钟选择一条记录（选择最后一条，通常是最新的）
