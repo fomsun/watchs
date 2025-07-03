@@ -277,34 +277,7 @@ class SQLitePriceRecorder:
             print(f"❌ 获取指定时间记录失败: {e}")
             return []
 
-    def get_records_from_time(self, start_time: str, count: int = 100) -> List[Dict[str, Any]]:
-        """从指定时间开始获取记录"""
-        try:
-            conn = sqlite3.connect(self.db_path, timeout=10.0)
-            conn.row_factory = sqlite3.Row
 
-            try:
-                cursor = conn.cursor()
-
-                cursor.execute('''
-                    SELECT timestamp, binance_price, backpack_price,
-                           lighter_bid, lighter_ask, lighter_mid, lighter_spread
-                    FROM price_records
-                    WHERE timestamp >= ?
-                    ORDER BY timestamp ASC
-                    LIMIT ?
-                ''', (start_time, count))
-
-                rows = cursor.fetchall()
-                records = [dict(row) for row in rows]
-                return records
-
-            finally:
-                conn.close()
-
-        except Exception as e:
-            print(f"❌ 获取指定时间记录失败: {e}")
-            return []
     
     def get_record_count(self) -> int:
         """获取记录总数"""

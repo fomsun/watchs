@@ -164,82 +164,81 @@ GET http://localhost:8080/api/btc-price
 }
 ```
 
-### 4. 历史价格接口 ⭐
+### 4. 历史价格接口 ⭐ **SQLite数据库**
 ```
-GET http://localhost:8080/api/btc-price/history
+GET http://localhost:8080/api/history
 ```
 
 **查询参数**:
-- `count`: 获取记录数量 (可选，默认返回所有记录，最大1000条)
-- `format`: 返回格式 (可选，`json`或`raw`，默认`json`)
+- `count`: 获取记录数量 (可选，默认100条，最大1000条)
+- `start_time`: 开始时间 (可选，格式: 2025-07-03 10:00:00)
+- `end_time`: 结束时间 (可选，格式: 2025-07-03 20:00:00)
+
+**查询模式**:
+1. **最新记录**: 只指定count参数
+2. **时间范围**: 指定start_time和end_time
+3. **从指定时间开始**: 指定start_time和count
 
 **使用示例**:
 
-#### 获取最新10条记录 (JSON格式)
+#### 获取最新100条记录
 ```bash
-curl "http://localhost:8080/api/btc-price/history?count=10"
+curl "http://localhost:8080/api/history?count=100"
 ```
 
-#### 获取最新50条记录 (原始格式)
+#### 时间范围查询
 ```bash
-curl "http://localhost:8080/api/btc-price/history?count=50&format=json"
+curl "http://localhost:8080/api/history?start_time=2025-07-03 10:00:00&end_time=2025-07-03 20:00:00"
 ```
 
-#### 获取所有历史记录
+#### 从指定时间开始获取50条
 ```bash
-curl "http://localhost:8080/api/btc-price/history"
+curl "http://localhost:8080/api/history?start_time=2025-07-03 15:00:00&count=50"
 ```
 
-**JSON格式返回示例**:
+**返回数据格式**:
 ```json
 {
   "count": 10,
-  "format": "json",
+  "query_type": "latest",
+  "query_params": {
+    "count": 10
+  },
   "data": [
     {
-      "binance": {
-        "exchange": "币安",
-        "price": 109379.0
-      },
-      "backpack": {
-        "exchange": "Backpack",
-        "price": 109323.9
-      },
-      "lighter": {
-        "exchange": "Lighter",
-        "price": 109352.2
-      },
-      "timestamp": "2025-07-03 02:37:59"
+      "timestamp": "2025-07-03 20:59:00",
+      "binance_price": 109379.0,
+      "backpack_price": 109323.9,
+      "lighter_bid": 109350.1,
+      "lighter_ask": 109354.3,
+      "lighter_mid": 109352.2,
+      "lighter_spread": 4.2
     },
     {
-      "binance": {
-        "exchange": "币安",
-        "price": 109381.5
-      },
-      "backpack": {
-        "exchange": "Backpack",
-        "price": 109325.1
-      },
-      "lighter": {
-        "exchange": "Lighter",
-        "price": 109354.8
-      },
-      "timestamp": "2025-07-03 02:37:49"
+      "timestamp": "2025-07-03 20:58:00",
+      "binance_price": 109381.5,
+      "backpack_price": 109325.1,
+      "lighter_bid": 109352.8,
+      "lighter_ask": 109356.8,
+      "lighter_mid": 109354.8,
+      "lighter_spread": 4.0
     }
-  ]
+  ],
+  "source": "sqlite_database"
 }
 ```
 
-**原始格式返回示例**:
+**时间范围查询返回示例**:
 ```json
 {
-  "count": 10,
-  "format": "raw",
-  "data": [
-    "币安:109379.0-Backpack:109323.9-Lighter:109352.2-2025-07-03 02:37:59",
-    "币安:109381.5-Backpack:109325.1-Lighter:109354.8-2025-07-03 02:37:49",
-    "币安:109383.2-Backpack:109327.3-Lighter:109356.1-2025-07-03 02:37:39"
-  ]
+  "count": 25,
+  "query_type": "time_range",
+  "query_params": {
+    "start_time": "2025-07-03 10:00:00",
+    "end_time": "2025-07-03 20:00:00"
+  },
+  "data": [...],
+  "source": "sqlite_database"
 }
 ```
 
